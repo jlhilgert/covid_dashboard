@@ -10,8 +10,6 @@ output:
     source_code: embed
     vertical_layout: scroll
 runtime: shiny
-resource_files:
-- COVID-19-geographic-disbtribution-worldwide-2020-12-14.xlsx
 ---
 
 ```{r include=FALSE}
@@ -205,8 +203,12 @@ Column {.sidebar}
 -----------------------------------------------------------------------
 
 ```{r echo=FALSE}
+OWIDdata_date <- data.frame(value = tapply(OWIDdata$location, OWIDdata$date, length)) %>%
+  filter(value > 20) %>%
+  mutate(dates = as.Date(rownames(.)))
+
 dateInput("date_adjust", label = "Select date:",
-            min = min(OWIDdata$date), max = max(OWIDdata$date), value = as.character(max(OWIDdata$date)), startview = "year")
+            min = min(OWIDdata$date), max = max(OWIDdata_date$dates), value = as.character(max(OWIDdata_date$dates)), startview = "year")
 
 selectInput("map_variable2", "Select focus:",
                 c("Cases" = 1,

@@ -1,0 +1,12 @@
+name: COVID_Data
+title: COVID_Data
+username:
+account: jlhilgert
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2454381
+bundleId: 4112950
+url: https://jlhilgert.shinyapps.io/COVID_Data/
+when: 1610987979.75687
+asMultiple: FALSE
+asStatic: FALSE
