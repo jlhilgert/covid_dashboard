@@ -14,7 +14,6 @@ runtime: shiny
 
 ```{r include=FALSE}
 #Copyright: Joao Lucas Dziekan Rodrigues Hilgert, Some rights reserved
-#theme: cerulean
 ```
 
 ```{r setup, include=FALSE}
