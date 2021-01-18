@@ -1,0 +1,209 @@
+---
+title: "COVID-19 in Deutschland"
+date: ""
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    smooth_scroll: true
+    css: bootstrap_de.css
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+library(readr)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(zoo)
+library(plotly)
+library(sp)
+library(tmap)
+library(leaflet)
+library(httr)
+library(readr)
+library(data.table)
+```
+
+```{r echo=FALSE}
+
+url2 <- "https://opendata.arcgis.com/datasets/b2e6d8854d9744ca88144d30bef06a76_1.csv"
+
+url1 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
+temp <- GET(url1)
+covid_DE <- read_csv(file = rawToChar(temp$content), locale = locale(encoding = "utf-8"))
+
+covid_DE <- covid_DE %>%
+  mutate(IdLandkreis = as.numeric(IdLandkreis))
+
+landkreis_DE <- read_csv(url2) %>%
+  select(RS, EWZ) %>%
+  rename(IdLandkreis = RS) %>%
+  mutate(IdLandkreis = as.numeric(IdLandkreis))
+
+covid_DE.BER <- covid_DE %>%
+  filter(Bundesland == "Berlin") %>%
+  group_by(Bundesland, Meldedatum) %>%
+  summarise(Faelle = sum(AnzahlFall), Tode = sum(AnzahlTodesfall), Genesen = sum(AnzahlGenesen), IdLandkreis = 11000, Landkreis = "SK Berlin") %>%
+  relocate(IdLandkreis, .before = Bundesland) %>%
+  relocate(Landkreis, .after = Bundesland) %>%
+  mutate(IdLandkreis = as.numeric(IdLandkreis), Meldedatum = as.Date(Meldedatum))
+
+covid_DE.subset <- covid_DE %>%
+  group_by(IdLandkreis, Bundesland, Landkreis, Meldedatum) %>%
+  summarise(Faelle = sum(AnzahlFall), Tode = sum(AnzahlTodesfall), Genesen = sum(AnzahlGenesen)) %>%
+  ungroup() %>%
+  filter(Bundesland != "Berlin") %>%
+  mutate(Meldedatum = as.Date(Meldedatum), IdLandkreis = as.numeric(IdLandkreis)) %>%
+  bind_rows(covid_DE.BER)
+
+daten <- seq(as.Date("2020/1/28"), max(covid_DE.subset$Meldedatum), "days")
+
+covid_DE.lk <- covid_DE.subset %>%
+  expand(nesting(IdLandkreis, Bundesland, Landkreis), daten) %>%
+  rename(Meldedatum = daten) %>%
+  left_join(covid_DE.subset) %>%
+  replace_na(list(Faelle = 0, Tode = 0)) %>%
+  left_join(landkreis_DE, by = "IdLandkreis") %>%
+  group_by(Landkreis, Meldedatum) %>%
+  mutate(taeg.Faelle = sum(Faelle), taeg.Tode = sum(Tode)) %>%
+  mutate(Genesen = ifelse(is.na(Genesen), 0, Genesen)) %>%
+  ungroup() %>%
+  group_by(Landkreis) %>%
+  mutate(tot.Faelle = cumsum(Faelle), tot.Tode = cumsum(Tode), tot.Genesen = cumsum(Genesen), aktiv = tot.Faelle - tot.Tode - tot.Genesen, Faelle.ms = rollapply(Faelle,7,sum,align="right",fill=0), Tode.ms = rollapply(Tode,7,sum,align="right",fill=0), Faelle.ma = rollapply(Faelle,7,mean,align="right",fill=0), Tode.ma = rollapply(Tode,7,mean,align="right",fill=0)) %>%
+  mutate(Faelle.ms.p100k = (Faelle.ms / EWZ) * 100000, Tode.ms.p100k = (Tode.ms /EWZ) * 100000, Faelle.p100k = (taeg.Faelle / EWZ) * 100000, Tode.p100k = (taeg.Tode / EWZ) * 100000) %>%
+  filter(Landkreis != "LK Göttingen (alt)") %>%
+  mutate(R_Wert = (lag(Faelle,4)+lag(Faelle,5)+lag(Faelle,6)+lag(Faelle,7)) / (lag(Faelle,8)+lag(Faelle,9)+lag(Faelle,10)+lag(Faelle,11))) %>%
+  mutate(R_Wert_7 = (lag(Faelle,4)+lag(Faelle,5)+lag(Faelle,6)+lag(Faelle,7)+lag(Faelle,8)+lag(Faelle,9)+lag(Faelle,10)) / (lag(Faelle,11)+lag(Faelle,12)+lag(Faelle,13)+lag(Faelle,14)+lag(Faelle,15)+lag(Faelle,16)+lag(Faelle,17))) %>%
+  mutate(R_Wert = replace(R_Wert, is.infinite(R_Wert),1), R_Wert = replace(R_Wert, is.nan(R_Wert),1), R_Wert = ifelse(R_Wert == 0, 1, R_Wert)) %>%
+  mutate(R_Wert_7 = replace(R_Wert_7, is.infinite(R_Wert_7),1), R_Wert_7 = replace(R_Wert_7, is.nan(R_Wert_7),1), R_Wert_7 = ifelse(R_Wert_7 == 0, 1, R_Wert_7)) %>%
+  as.data.table()
+
+#rm(covid_DE, covid_DE.BER, covid_DE.subset, landkreis_DE, temp)
+```
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+```{r echo=FALSE}
+selectInput("region", "Region:",
+            choices=unique(covid_DE.lk$Landkreis),
+            selected="SK München")
+
+checkboxInput("checkbox", "Sensitive Daten", value = FALSE)
+
+dateInput("date_adjust", label = "Datum der Landkarte:",
+            min = min(covid_DE.lk$Meldedatum), max = max(covid_DE.lk$Meldedatum), value = as.character(max(covid_DE.lk$Meldedatum)), startview = "year")
+
+selectInput("map_data", "Datenart der Landkarte:",
+            choices=c("Fälle pro 100.000", "Stabiles R-Wert", "Sensitives R-Wert")
+            )
+
+var1 <- list("Fälle pro 100.000" = "Faelle.ms.p100k", "Stabiles R-Wert" = "R_Wert_7", "Sensitives R-Wert" = "R_Wert")
+```
+Datenquelle: [Robert Koch-Institut (RKI), dl-de/by-2-0](https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html) <br> <br>
+Für Erläuterung der Schätzung der zeitlich variierenden Reproduktionszahl R, bitte klicken Sie [hier](https://www.rki.de/SharedDocs/FAQ/NCOV2019/FAQ_Liste_Epidemiologie.html#FAQId13985854) und [hier](https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Projekte_RKI/R-Wert-Erlaeuterung.pdf?__blob=publicationFile). <br>
+<br>
+Haftungsausschluss: „Die Inhalte, die über die Internetseiten des Robert Koch-Instituts zur Verfügung gestellt werden, dienen ausschließlich der allgemeinen Information der Öffentlichkeit, vorrangig der Fachöffentlichkeit“. Erfahren Sie mehr [hier](https://www.rki.de/DE/Service/Impressum/impressum_node.html).
+
+Row {data-height=10}
+-----------------------------------------------------------------------
+ 
+
+First row
+-----------------------------------------------------------------------
+
+### Summe der Fälle der vorherigen 7 Tagen pro 100.000 Einwohner (Inzidenzwert)
+
+```{r echo=FALSE}
+lk_df <- reactive({
+  covid_DE_df <- covid_DE.lk %>%
+    filter(Landkreis == input$region)
+})
+
+renderPlotly({
+  plotlydf <- lk_df()
+  plotgraph <- plot_ly(data = plotlydf, x = plotlydf$Meldedatum, y = plotlydf$Faelle.ms.p100k, type = 'scatter', mode = "lines", name = input$region)
+  if (input$checkbox == TRUE) {
+    plotgraph <- plotgraph %>% add_trace(x = plotlydf$Meldedatum, y = plotlydf$taeg.Faelle, name = "Tägliche zahlen", type='bar')
+  }
+  plotgraph <- plotgraph %>% 
+    add_segments(x = min(covid_DE.lk$Meldedatum), xend = max(covid_DE.lk$Meldedatum), y = 200, yend = 200, line=list(color='#aa481e'),  name = "Grenzwert 200") %>% 
+    add_segments(x = min(covid_DE.lk$Meldedatum), xend = max(covid_DE.lk$Meldedatum), y = 100, yend = 100, line=list(color='#dc7332'),  name = "Grenzwert 100") %>%
+    add_segments(x = min(covid_DE.lk$Meldedatum), xend = max(covid_DE.lk$Meldedatum), y = 50, yend = 50, line=list(color='#f3ac51'),  name = "Grenzwert 50") %>% 
+    add_segments(x = min(covid_DE.lk$Meldedatum), xend = max(covid_DE.lk$Meldedatum), y = 35, yend = 35, line=list(color='#fade92'), name = "Grenzwert 35") %>%
+    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = 'Inzidenzwert', color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'))
+  plotgraph
+})
+```
+
+Second row
+-----------------------------------------------------------------------
+### Reproduktionszahl (R-Wert) - sensitiv (4 Tage) und stabil (7 Tage)
+```{r echo=FALSE}
+renderPlotly({
+  plotdf <- lk_df()
+  plotgraph <- plot_ly(data = plotdf, x = plotdf$Meldedatum, y = plotdf$R_Wert_7, name = "stabiles R (7 Tage)", type='scatter', mode='lines')
+  if (input$checkbox == TRUE) {
+    plotgraph <- plotgraph %>% add_trace(x = plotdf$Meldedatum, y = plotdf$R_Wert, type = 'bar', name = 'sensitives R (4 Tage)')
+  }
+  plotgraph <- plotgraph %>% add_segments(x = min(plotdf$Meldedatum), xend = max(covid_DE.lk$Meldedatum), y = 1, yend = 1, line=list(color='#E50000'), name = "Grenzwert 1") %>%
+    layout(yaxis = list(title = 'R number'), barmode = 'stack') %>% 
+    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = 'Reproduktionszahl', color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'))
+  plotgraph
+})
+```
+
+
+Third row
+-----------------------------------------------------------------------
+```{r echo=FALSE}
+tmap_mode("view")
+
+de.sf <- readRDS("DEU_lk_simp.rds") #%>% #rename(IdLandkreis = CC_2) %>% mutate(IdLandkreis = as.numeric(IdLandkreis))
+  
+
+ott.geo <- de.sf %>%
+  filter(NAME_2 == "Göttingen" | NAME_2 == "Osterode am Harz") %>%
+  summarise()
+
+de.sf$geometry[de.sf$NAME_2 == "Göttingen"] <- ott.geo$geometry
+de.sf$IdLandkreis[de.sf$NAME_2 == "Göttingen"] <- 3159
+
+de.sf <- de.sf[de.sf$NAME_2 != "Osterode am Harz",]
+de.sf <- de.sf[de.sf$NAME_2 != "Bodensee",] %>%
+  sf::st_as_sf(.)
+
+rm(ott.geo)
+
+
+sf::st_crs(de.sf) <- 10
+
+#de.sf <- rmapshaper::ms_simplify(input = as(de.sf, 'Spatial')) %>% sf::st_as_sf()
+
+
+covid_DE.map <- reactive({
+  de.sf %>%
+    left_join(covid_DE.lk[covid_DE.lk$Meldedatum == input$date_adjust,], by = "IdLandkreis")
+})
+
+renderLeaflet({
+  tm <- tm_shape(covid_DE.map())
+  if (input$map_data == "Fälle pro 100.000") {tm <- tm + tm_polygons(var1[[input$map_data]], palette = "YlOrBr", id="Landkreis", style = "fixed", breaks = c(0, 35, 50, 100, 200, +Inf), title = "Inzidenzwert")}
+  if (input$map_data %in% c("Stabiles R-Wert", "Sensitives R-Wert")) {tm <- tm + tm_polygons(var1[[input$map_data]], palette = "BuPu", id="Landkreis", style = "fixed", breaks = c(0, 1, 2, +Inf), title = input$map_data)}
+  tm <- tm + tm_basemap(server = "CartoDB.DarkMatterNoLabels") +
+    tm_shape(covid_DE.map() %>% filter(Landkreis == input$region)) + tm_borders(col = "#00FFF7")
+  tmap_leaflet(tm)
+})
+
+
+```
+
+
+Third row
+-----------------------------------------------------------------------
+**© 2020 Joao Lucas D. R. Hilgert. Some rights reserved.**
