@@ -24,22 +24,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ``` {r include = FALSE}
 library(tidyr)
 library(dplyr)
-library(readxl)
-library(rnaturalearthdata)
 library(rnaturalearth)
-library(sp)
 library(tmap)
 library(leaflet)
-library(shiny)
-library(rgeos)
 library(plotly)
-library(zoo)
-library(flexdashboard)
 library(httr)
-library(utils)
 library(data.table)
-library(rvest)
-library(jsonlite)
 ```
 
 ```{r, include=FALSE}
