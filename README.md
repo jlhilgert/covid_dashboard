@@ -1,6 +1,8 @@
 # Covid 19 Dashboard
 
 ## General information
+To access the dashboard <a href="https://jlhilgert.shinyapps.io/COVID_Data/">click here</a>.<br/> 
+<br/>
 This graphical report includes various interactive visualizations on the development of COVID-19 as well as the relating policies around the world.<br/> 
 <br/>
 The report is made of four sections: A country level visualization of the main data, a spatial distribution of data globally, a tool for comparative analysis, and a spatial and comparative analysis of the stringency of policies related to COVID-19. All graphs are interative. Bars, countries and lines are scrollable and clickable.<br/>
