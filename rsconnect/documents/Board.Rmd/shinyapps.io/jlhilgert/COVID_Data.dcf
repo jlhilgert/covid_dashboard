@@ -5,8 +5,8 @@ account: jlhilgert
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2454381
-bundleId: 4112950
+bundleId: 4114724
 url: https://jlhilgert.shinyapps.io/COVID_Data/
-when: 1610987979.75687
+when: 1611021390.39233
 asMultiple: FALSE
 asStatic: FALSE
