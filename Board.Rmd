@@ -31,10 +31,14 @@ library(leaflet)
 library(plotly)
 library(httr)
 library(data.table)
+library(zoo)
 ```
 
 ```{r, include=FALSE}
 OWIDdata <- fread("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv") %>%
+  group_by(location) %>%
+  mutate(total_vaccinations = na.locf(total_vaccinations, na.rm = FALSE)) %>%
+  ungroup() %>%
   mutate(death_rate = total_deaths / total_cases *100, new_vaccinations_per_million = new_vaccinations / population * 1000000, total_vaccinations_per_million = total_vaccinations / population * 1000000)
 
 w.sf <- ne_countries(scale = "medium", returnclass = "sf") %>%
@@ -421,8 +425,13 @@ scale_var_map <- c("Logarithmic" = "log10_pretty",
                   )
 
 renderLeaflet({
+  if (input$map_variable2 == "vaccinations") {
+    pl_color <- "PuBu"
+  } else {
+    pl_color <- "YlOrBr"
+  }
   tm <- tm_shape(mapFiltered()) + 
-    tm_polygons(varlist4()[[input$map_variable2]][as.numeric(input$map_variable)], palette = "YlOrBr", id="sovereignt", style = scale_var_map[input$varScale2]) +
+    tm_polygons(varlist4()[[input$map_variable2]][as.numeric(input$map_variable)], palette = pl_color, id="sovereignt", style = scale_var_map[input$varScale2]) +
     tm_basemap(server = "CartoDB.DarkMatterNoLabels")
   tmap_leaflet(tm, )
 })
