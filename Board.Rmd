@@ -35,7 +35,7 @@ library(data.table)
 
 ```{r, include=FALSE}
 OWIDdata <- fread("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv") %>%
-  mutate(death_rate = total_deaths / total_cases *100)
+  mutate(death_rate = total_deaths / total_cases *100, new_vaccinations_per_million = new_vaccinations / population * 1000000, total_vaccinations_per_million = total_vaccinations / population * 1000000)
 
 w.sf <- ne_countries(scale = "medium", returnclass = "sf") %>%
   filter(sovereignt != "Antarctica")
@@ -83,7 +83,7 @@ You can also donate to *[Doctors without Borders](https://www.msf.org/donate)*. 
  
 **© 2020 Joao Lucas D. R. Hilgert. Some rights reserved.**
 
-Comparative Graphs {data-navmenu="Data Visualization"}
+Comparative Data {data-navmenu="Data Visualization"}
 ================================================================
 
 Column {.sidebar}
@@ -92,10 +92,13 @@ Column {.sidebar}
 ```{r, echo=FALSE}
 selectInput("comp_variable", "Select variable:",
                 c("Cases" = "cases",
-                  "Deaths" = "deaths"
+                  "Deaths" = "deaths",
+                  "Vaccinations" = "vaccinations"
                   ))
 
 checkboxGroupInput("varSelectcomp", "Visualization:", choices = c("Moving avg", "Per million inhabitants"), selected = c("Moving avg", "Per million inhabitants"))
+
+radioButtons("varScale", "Scale:", choices = c("Linear", "Logarithmic"), selected = "Linear")
 
 dateRangeInput("daterange2", "Date range:", start = as.character(min(OWIDdata$date)), end = as.character(max(OWIDdata$date)), min = "2013-12-31",
                               max = max(OWIDdata$date), format = "yyyy-mm-dd", startview = "year",
@@ -143,30 +146,39 @@ selectInput(
 Data: [Our World in Data](https://github.com/owid/covid-19-data/tree/master/public/data)
 
 ```{r include=FALSE}
+countryNames <- reactive({
+  cNames <- c(input$country1, input$country2, input$country3, input$country4, input$country5)
+  cNames[! cNames %in% "-"]
+})
+
 plotfiltered2 <- reactive({
   subset <- OWIDdata
-  subset <- subset[subset$date >= input$daterange1[1] & subset$date <= input$daterange1[2], ]
+  subset <- subset[subset$date >= input$daterange2[1] & subset$date <= input$daterange2[2], ]
   subset <- subset[subset$location == input$country1 | subset$location == input$country2 | subset$location == input$country3 | subset$location == input$country4 | subset$location == input$country5, ]
   if ("Per million inhabitants" %in% input$varSelectcomp & "Moving avg" %in% input$varSelectcomp){
     varlist3 <- list(
   "cases" = c("new_cases_smoothed_per_million", "total_cases_per_million"),
-  "deaths" = c("new_deaths_smoothed_per_million", "total_deaths_per_million")
+  "deaths" = c("new_deaths_smoothed_per_million", "total_deaths_per_million"),
+  "vaccinations" = c("new_vaccinations_smoothed_per_million", "total_vaccinations_per_million")
     )
   } else if ("Per million inhabitants" %in% input$varSelectcomp) {
     varlist3 <- list(
   "cases" = c("new_cases_per_million", "total_cases_per_million"),
-  "deaths" = c("new_deaths_per_million", "total_deaths_per_million")
+  "deaths" = c("new_deaths_per_million", "total_deaths_per_million"),
+  "vaccinations" = c("new_vaccinations_per_million", "total_vaccinations_per_million")
     )
   } else if ("Moving avg" %in% input$varSelectcomp) {
     varlist3 <- list(
   "cases" = c("new_cases_smoothed", "total_cases"),
-  "deaths" = c("new_deaths_smoothed", "total_deaths")
+  "deaths" = c("new_deaths_smoothed", "total_deaths"),
+  "vaccinations" = c("new_vaccinations_smoothed", "total_vaccinations")
     )
     
   } else {
     varlist3 <- list(
   "cases" = c("new_cases", "total_cases"),
-  "deaths" = c("new_deaths", "total_deaths")
+  "deaths" = c("new_deaths", "total_deaths"),
+  "vaccinations" = c("new_vaccinations", "total_vaccinations")
     )
   }
   subset <- subset %>%
@@ -177,29 +189,28 @@ varlist3_names <- reactive({
   if ("Per million inhabitants" %in% input$varSelectcomp & "Moving avg" %in% input$varSelectcomp){
     varlist3_names <- list(
   "cases" = c("New cases per million (7 day moving avg)", "Total cases per million"),
-  "deaths" = c("New deaths per million (7 day moving avg)", "Total deaths per million")
+  "deaths" = c("New deaths per million (7 day moving avg)", "Total deaths per million"),
+  "vaccinations" = c("New vaccinations per million (7 day moving avg)", "Total vaccinations per million")
     )
   } else if ("Per million inhabitants" %in% input$varSelectcomp) {
     varlist3_names <- list(
   "cases" = c("New cases per million", "Total cases per million"),
-  "deaths" = c("New deaths per million", "Total deaths per million")
+  "deaths" = c("New deaths per million", "Total deaths per million"),
+  "vaccinations" = c("New vaccinations per million", "Total vaccinations per million")
     )
   } else if ("Moving avg" %in% input$varSelectcomp) {
     varlist3_names <- list(
   "cases" = c("New cases (7 day moving avg)", "Total cases"),
-  "deaths" = c("New deaths (7 day moving avg)", "Total deaths")
+  "deaths" = c("New deaths (7 day moving avg)", "Total deaths"),
+  "vaccinations" = c("New vaccinations (7 day moving avg)", "Total vaccinations")
     )
   } else {
     varlist3_names <- list(
   "cases" = c("New cases", "Total cases"),
-  "deaths" = c("New deaths", "Total deaths")
+  "deaths" = c("New deaths", "Total deaths"),
+  "vaccinations" = c("New vaccinations", "Total vaccinations")
     )
   }
-})
-
-countryNames <- reactive({
-  cNames <- c(input$country1, input$country2, input$country3, input$country4, input$country5)
-  cNames[! cNames %in% "-"]
 })
 ```
 
@@ -212,14 +223,18 @@ renderPlotly({
   coNames <- countryNames()
   plotdf <- plotfiltered2()
   varlist3_names <- varlist3_names()
-  plot.comp <- plot_ly(data = plotdf, x = plotdf$date[plotdf$location == coNames[1]], y = plotdf$graph1[plotdf$location == coNames[1]], type = 'scatter', mode = "lines", name = coNames[1])
+  scaleType <- list(
+    "Linear" = "linear",
+    "Logarithmic" = "log"
+  )
+  plot.comp <- plot_ly(data = plotdf, x = plotdf$date[plotdf$location == coNames[1]], y = plotdf$graph1[plotdf$location == coNames[1]], type = 'scatter', mode = "lines", name = coNames[1], connectgaps = TRUE)
   if (length(coNames) > 1) {
     for (i in 2:length(coNames)) {
       plot.comp <- plot.comp %>% add_trace(x = plotdf$date[plotdf$location == coNames[i]], y = plotdf$graph1[plotdf$location == coNames[i]], name = coNames[i], evaluate = T)
     }
   }
   plot.comp <- plot.comp %>% layout(yaxis = list(title = varlist3_names[[input$comp_variable]][1]), barmode = 'stack') %>% 
-    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = varlist3_names[[input$comp_variable]][1], color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'))
+    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = varlist3_names[[input$comp_variable]][1], color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey', type = scaleType[[input$varScale]]))
   plot.comp
 })
 ```
@@ -233,14 +248,18 @@ renderPlotly({
   coNames <- countryNames()
   plotdf <- plotfiltered2()
   varlist3_names <- varlist3_names()
-  plot.comp <- plot_ly(data = plotdf, x = plotdf$date[plotdf$location == coNames[1]], y = plotdf$graph2[plotdf$location == coNames[1]], type = 'scatter', mode = "lines", name = coNames[1])
+  scaleType <- list(
+    "Linear" = "linear",
+    "Logarithmic" = "log"
+  )
+  plot.comp <- plot_ly(data = plotdf, x = plotdf$date[plotdf$location == coNames[1]], y = plotdf$graph2[plotdf$location == coNames[1]], type = 'scatter', mode = "lines", name = coNames[1], connectgaps = TRUE)
   if (length(coNames) > 1) {
     for (i in 2:length(coNames)) {
       plot.comp <- plot.comp %>% add_trace(x = plotdf$date[plotdf$location == coNames[i]], y = plotdf$graph2[plotdf$location == coNames[i]], name = coNames[i], evaluate = T)
     }
   }
   plot.comp <- plot.comp %>% layout(yaxis = list(title = varlist3_names[[input$comp_variable]][2]), barmode = 'stack') %>% 
-    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = varlist3_names[[input$comp_variable]][2], color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'))
+    layout(plot_bgcolor='#262626', paper_bgcolor='#262626', legend = list(font = list(color = 'white')), xaxis=list(color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey'), yaxis=list(title = varlist3_names[[input$comp_variable]][2], color = 'white', linecolor='white', gridcolor = 'grey', tickfont=list(color='white'), zerolinecolor = 'grey', type = scaleType[[input$varScale]]))
   plot.comp
 })
 ```
