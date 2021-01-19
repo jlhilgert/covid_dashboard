@@ -315,46 +315,94 @@ OWIDdata_date <- data.frame(value = tapply(OWIDdata$location, OWIDdata$date, len
   filter(value > 20) %>%
   mutate(dates = as.Date(rownames(.)))
 
-dateInput("date_adjust", label = "Select date:",
-            min = min(OWIDdata$date), max = max(OWIDdata_date$dates), value = as.character(max(OWIDdata_date$dates)), startview = "year")
-
 selectInput("map_variable2", "Select focus:",
-                c("Cases" = 1,
-                  "Deaths" = 2
+                c("Cases" = "cases",
+                  "Deaths" = "deaths",
+                  "Vaccinations" = "vaccinations"
                   ))
 
 selectInput("map_variable", "Select range:",
-                c("Moving Avg (7 day)" = "movAvg",
-                  "Single Day" = "daily",
-                  "Cumulative Total" = "total"
+                c("Single Day" = 1,
+                  "Cumulative Total" = 2
                   ))
 
-varlist <- list("daily" = c("new_cases", "new_deaths", "new_cases_per_million", "new_deaths_per_million"),
-                "total" = c("total_cases", "total_deaths", "total_cases_per_million", "total_deaths_per_million"),
-                "movAvg" = c("new_cases_smoothed", "new_deaths_smoothed", "new_cases_smoothed_per_million", "new_deaths_smoothed_per_million")
-                )
+dateInput("date_adjust", label = "Select date:",
+            min = min(OWIDdata$date), max = max(OWIDdata_date$dates), value = as.character(max(OWIDdata_date$dates)), startview = "year")
 
-varlist_names <- list("daily" = c("Daily cases", "Daily deaths", "Daily cases per million", "Daily deaths per million"),
-                  "total" = c("Cumulative cases", "Cumulative deaths", "Cumulative cases per million", "Cumulative deaths per million"),
-                "movAvg" = c("Cases (7-day rolling avg)", "Deaths (7-day rolling avg)", "Cases (7-day rolling avg) per million", "Deaths (7-day rolling avg) per million")
-                  )
+checkboxGroupInput("varSelectcomp2", "Visualization:", choices = c("Moving avg", "Per million inhabitants"), selected = c("Moving avg", "Per million inhabitants"))
 
-selectInput("scale_variable", "Select scale:",
-                c("Logarithmic scale" = "log10_pretty",
-                  "Linear scale" = "pretty"
-                  ))
+radioButtons("varScale2", "Scale:", choices = c("Linear", "Logarithmic"), selected = "Linear")
 ```
+
+```{r echo=FALSE}
+varlist4_names <- reactive({
+  if ("Per million inhabitants" %in% input$varSelectcomp2 & "Moving avg" %in% input$varSelectcomp2){
+    list(
+  "cases" = c("New cases per million (7 day moving avg)", "Total cases per million"),
+  "deaths" = c("New deaths per million (7 day moving avg)", "Total deaths per million"),
+  "vaccinations" = c("New vaccinations per million (7 day moving avg)", "Total vaccinations per million")
+    )
+  } else if ("Per million inhabitants" %in% input$varSelectcomp2) {
+    list(
+  "cases" = c("New cases per million", "Total cases per million"),
+  "deaths" = c("New deaths per million", "Total deaths per million"),
+  "vaccinations" = c("New vaccinations per million", "Total vaccinations per million")
+    )
+  } else if ("Moving avg" %in% input$varSelectcomp2) {
+    list(
+  "cases" = c("New cases (7 day moving avg)", "Total cases"),
+  "deaths" = c("New deaths (7 day moving avg)", "Total deaths"),
+  "vaccinations" = c("New vaccinations (7 day moving avg)", "Total vaccinations")
+    )
+  } else {
+    list(
+  "cases" = c("New cases", "Total cases"),
+  "deaths" = c("New deaths", "Total deaths"),
+  "vaccinations" = c("New vaccinations", "Total vaccinations")
+    )
+  }
+})
+```
+
 
 Data: [Our World in Data](https://github.com/owid/covid-19-data/tree/master/public/data)
 
 Row {data-height=10}
 -----------------------------------------------------------------------
 
-Column
+Column {data-height=800}
 -----------------------------------------------------------------------
-### `r reactive({varlist_names[[input$map_variable]][as.numeric(input$map_variable2)]})`
+###
 
 ```{r, echo=FALSE}
+varlist4 <- reactive({
+  if ("Per million inhabitants" %in% input$varSelectcomp2 & "Moving avg" %in% input$varSelectcomp2){
+    varlist4 <- list(
+  "cases" = c("new_cases_smoothed_per_million", "total_cases_per_million"),
+  "deaths" = c("new_deaths_smoothed_per_million", "total_deaths_per_million"),
+  "vaccinations" = c("new_vaccinations_smoothed_per_million", "total_vaccinations_per_million")
+    )
+  } else if ("Per million inhabitants" %in% input$varSelectcomp2) {
+    varlist4 <- list(
+  "cases" = c("new_cases_per_million", "total_cases_per_million"),
+  "deaths" = c("new_deaths_per_million", "total_deaths_per_million"),
+  "vaccinations" = c("new_vaccinations_per_million", "total_vaccinations_per_million")
+    )
+  } else if ("Moving avg" %in% input$varSelectcomp2) {
+    varlist4 <- list(
+  "cases" = c("new_cases_smoothed", "total_cases"),
+  "deaths" = c("new_deaths_smoothed", "total_deaths"),
+  "vaccinations" = c("new_vaccinations_smoothed", "total_vaccinations")
+    )
+  } else {
+    varlist4 <- list(
+  "cases" = c("new_cases", "total_cases"),
+  "deaths" = c("new_deaths", "total_deaths"),
+  "vaccinations" = c("new_vaccinations", "total_vaccinations")
+    )
+  }
+})
+
 tmap_mode("view")
 
 mapFiltered <- reactive({
@@ -368,26 +416,15 @@ num1 <- reactive({
   num1 <- input$map_variable2
 })
 
+scale_var_map <- c("Logarithmic" = "log10_pretty",
+                  "Linear" = "pretty"
+                  )
 
 renderLeaflet({
   tm <- tm_shape(mapFiltered()) + 
-    tm_polygons(varlist[[input$map_variable]][as.numeric(input$map_variable2)], palette = "YlOrBr", id="sovereignt", style = input$scale_variable) +
+    tm_polygons(varlist4()[[input$map_variable2]][as.numeric(input$map_variable)], palette = "YlOrBr", id="sovereignt", style = scale_var_map[input$varScale2]) +
     tm_basemap(server = "CartoDB.DarkMatterNoLabels")
-  tmap_leaflet(tm)
-})
-```
-
-
-Second row
----------------------------------------------
-### `r reactive({varlist_names[[input$map_variable]][as.numeric(input$map_variable2)+2]})`
-
-```{r echo=FALSE, fig.cap="Source: World Bank"}
-renderLeaflet({
-  tm <- tm_shape(mapFiltered()) + 
-    tm_polygons(varlist[[input$map_variable]][as.numeric(input$map_variable2)+2], palette = "YlOrBr", id="sovereignt", style = input$scale_variable) +
-    tm_basemap(server = "CartoDB.DarkMatterNoLabels")
-  tmap_leaflet(tm)
+  tmap_leaflet(tm, )
 })
 ```
 
