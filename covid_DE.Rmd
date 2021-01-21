@@ -5,7 +5,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: scroll
-    smooth_scroll: true
+    smooth_scroll: yes
     css: bootstrap_de.css
     source_code: embed
 runtime: shiny
@@ -15,7 +15,7 @@ runtime: shiny
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r echo=FALSE}
+```{r echo=FALSE, warning=FALSE, message=FALSE}
 library(readr)
 library(dplyr)
 library(lubridate)
@@ -28,20 +28,29 @@ library(leaflet)
 library(httr)
 library(readr)
 library(data.table)
+library(stringr)
 ```
 
 ```{r echo=FALSE}
+covid_DE <- readRDS("covid_rki.rds")
 
-url2 <- "https://opendata.arcgis.com/datasets/b2e6d8854d9744ca88144d30bef06a76_1.csv"
+url1 <- "https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html"
+data_date <- str_match(readLines(url1, warn = F), "<p>Stand: \\s*(.*?)\\s*, ")
 
-url1 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
-temp <- GET(url1)
-covid_DE <- read_csv(file = rawToChar(temp$content), locale = locale(encoding = "utf-8"))
+if (as.Date(max(covid_DE$Meldedatum)) < as.Date(data_date[!is.na(data_date)][2], format = "%d.%m.%Y") - 1) {
+  url2 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
+  temp <- GET(url2)
+  covid_DE <- read_csv(file = rawToChar(temp$content), locale = locale(encoding = "utf-8"))
+  
+  saveRDS(covid_DE, "covid_rki.rds")
+}
 
 covid_DE <- covid_DE %>%
   mutate(IdLandkreis = as.numeric(IdLandkreis))
 
-landkreis_DE <- read_csv(url2) %>%
+url3 <- "https://opendata.arcgis.com/datasets/b2e6d8854d9744ca88144d30bef06a76_1.csv"
+
+landkreis_DE <- read_csv(url3) %>%
   select(RS, EWZ) %>%
   rename(IdLandkreis = RS) %>%
   mutate(IdLandkreis = as.numeric(IdLandkreis))
@@ -159,8 +168,10 @@ renderPlotly({
 ```
 
 
-Third row
+Map {data-height=800}
 -----------------------------------------------------------------------
+###
+
 ```{r echo=FALSE}
 tmap_mode("view")
 
