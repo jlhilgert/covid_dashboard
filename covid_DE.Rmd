@@ -29,10 +29,19 @@ library(httr)
 library(readr)
 library(data.table)
 library(stringr)
-library(jsonlite)
+library(googledrive)
 ```
 
 ```{r echo=FALSE}
+temp <- tempfile()
+
+download.file(url = "https://docs.google.com/uc?id=11jSQ4vBK1z5ip6GAia0w2fvS31B6gc_F&export=download", destfile = temp)
+
+covid_DE.lk <- readRDS(temp)
+```
+
+
+```{r eval=FALSE, include=FALSE}
 # covid_DE <- readRDS("covid_rki.rds")
 # 
 # url1 <- "https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html"
