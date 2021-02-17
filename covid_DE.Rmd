@@ -29,21 +29,25 @@ library(httr)
 library(readr)
 library(data.table)
 library(stringr)
+library(jsonlite)
 ```
 
 ```{r echo=FALSE}
-covid_DE <- readRDS("covid_rki.rds")
+# covid_DE <- readRDS("covid_rki.rds")
+# 
+# url1 <- "https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html"
+# data_date <- str_match(readLines(url1, warn = F), "<p>Stand: \\s*(.*?)\\s*, ")
+# 
+# if (as.Date(max(covid_DE$Meldedatum)) < as.Date(data_date[!is.na(data_date)][2], format = "%d.%m.%Y") - 1) {
+#   url2 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
+#   temp <- GET(url2)
+#   covid_DE <- read_csv(file = rawToChar(temp$content), locale = locale(encoding = "utf-8"))
+#   
+#   saveRDS(covid_DE, "covid_rki.rds")
+# }
 
-url1 <- "https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html"
-data_date <- str_match(readLines(url1, warn = F), "<p>Stand: \\s*(.*?)\\s*, ")
-
-if (as.Date(max(covid_DE$Meldedatum)) < as.Date(data_date[!is.na(data_date)][2], format = "%d.%m.%Y") - 1) {
-  url2 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
-  temp <- GET(url2)
-  covid_DE <- read_csv(file = rawToChar(temp$content), locale = locale(encoding = "utf-8"))
-  
-  saveRDS(covid_DE, "covid_rki.rds")
-}
+url2 <- "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
+covid_DE <- read_csv(file = url2, locale = locale(encoding = "utf-8"))
 
 covid_DE <- covid_DE %>%
   mutate(IdLandkreis = as.numeric(IdLandkreis))
