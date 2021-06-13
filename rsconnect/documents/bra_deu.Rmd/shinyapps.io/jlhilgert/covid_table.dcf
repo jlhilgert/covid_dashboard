@@ -1,0 +1,12 @@
+name: covid_table
+title: covid_table
+username:
+account: jlhilgert
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3899434
+bundleId: 4711595
+url: https://jlhilgert.shinyapps.io/covid_table/
+when: 1623601410.03792
+asMultiple: FALSE
+asStatic: FALSE

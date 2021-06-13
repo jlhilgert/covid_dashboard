@@ -29,15 +29,22 @@ library(httr)
 library(readr)
 library(data.table)
 library(stringr)
-library(googledrive)
 ```
 
 ```{r echo=FALSE}
-temp <- tempfile()
+# temp <- tempfile()
+# 
+# download.file(url = "https://docs.google.com/uc?id=1a87W7duFtOzGGYOMFmnJrWxfv3yXngJz&export=download", destfile = temp)
+# 
+# covid_DE.lk <- readRDS(temp)
 
-download.file(url = "https://docs.google.com/uc?id=11jSQ4vBK1z5ip6GAia0w2fvS31B6gc_F&export=download", destfile = temp)
 
-covid_DE.lk <- readRDS(temp)
+# temp <- tempfile()
+# 
+# download.file(url = "https://docs.google.com/uc?id=11CU-Z8PbjtAnS2Pb0kudyBudGahMJVcF&export=download", destfile = temp, quiet = T)
+
+covid_DE.lk <- data.table::fread("https://docs.google.com/uc?id=11CU-Z8PbjtAnS2Pb0kudyBudGahMJVcF&export=download", encoding = "Latin-1")
+#covid_DE.lk <- read_csv(file = temp, locale = locale(encoding = "utf-8"))
 ```
 
 

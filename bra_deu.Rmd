@@ -1,0 +1,129 @@
+---
+title: "COVID-19 Data Tables"
+author: "by Joao Lucas D. R. Hilgert"
+date: ''
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    smooth_scroll: no
+    source_code: embed
+    vertical_layout: scroll
+runtime: shiny
+---
+
+```{r include=FALSE}
+#Copyright: Joao Lucas Dziekan Rodrigues Hilgert, Some rights reserved
+#theme: cerulean
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+``` {r include = FALSE}
+library(tidyr)
+library(dplyr)
+library(shiny)
+library(rgeos)
+library(plotly)
+library(zoo)
+library(flexdashboard)
+library(httr)
+library(utils)
+library(data.table)
+library(rvest)
+library(jsonlite)
+library(matrixStats)
+```
+
+All countries {data-navmenu="Data Tables"}
+================================================================
+
+```{r, include=FALSE}
+OWIDdata <- fread("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv") %>%
+  mutate(death_rate = total_deaths / total_cases *100) %>%
+  group_by(iso_code) %>%
+  mutate(cases_smoothed_diff = new_cases_smoothed - lag(new_cases_smoothed),
+         deaths_smoothed_diff= new_deaths_smoothed - lag(new_deaths_smoothed)) %>%
+  mutate(cases_smoothed_diff_avg = rollsumr(cases_smoothed_diff, 7, fill = NA)/7,
+         deaths_smoothed_diff_avg = rollsumr(deaths_smoothed_diff, 7, fill = NA)/7) %>%
+  mutate(incidence = rollsumr(new_cases, 7, fill = NA)/population*100000) %>%
+  ungroup()
+```
+
+```{r include=FALSE}
+dt2 <- OWIDdata %>%
+  filter(date == max(date) | date == (max(date)-1)) %>%
+  select(location, date, total_cases, new_cases_smoothed, incidence, cases_smoothed_diff_avg, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg)
+dt2 <- dt2[!duplicated(dt2$location),]
+
+dt3 <- OWIDdata %>%
+  group_by(iso_code) %>%
+  mutate(
+    total_vaccinations = na.locf(total_vaccinations, fromLast = F,na.rm = F),
+    people_vaccinated = na.locf(people_vaccinated, fromLast = F,na.rm = F),
+    people_fully_vaccinated = na.locf(people_fully_vaccinated, fromLast = F,na.rm = F),
+    new_vaccinations_smoothed = na.locf(new_vaccinations_smoothed, fromLast = F,na.rm = F),
+    total_vaccinations_per_hundred = na.locf(total_vaccinations_per_hundred, fromLast = F, na.rm = F),
+    people_fully_vaccinated_per_hundred = na.locf(people_fully_vaccinated_per_hundred, fromLast = F, na.rm = F)) %>%
+  ungroup() %>%
+  filter(date == max(date) | date == (max(date)-1)) %>%
+  select(location, date, total_vaccinations, people_vaccinated,new_vaccinations_smoothed, people_fully_vaccinated, people_fully_vaccinated_per_hundred, total_vaccinations_per_hundred)
+dt3 <- dt3[!duplicated(dt3$location),]
+```
+
+```{r include=FALSE}
+colnames(OWIDdata)
+```
+
+### Infections
+
+```{r}
+DT::datatable(dt2, filter = "top")
+```
+
+### Vaccinations
+
+```{r}
+DT::datatable(dt3, filter = "top")
+```
+
+Select countries {data-navmenu="Data Tables"}
+================================================================
+
+```{r}
+OWIDdata2 <- OWIDdata %>%
+  mutate(death_rate = total_deaths / total_cases *100) %>%
+  filter(iso_code %in% c("BRA", "DEU"))
+```
+
+```{r include=FALSE}
+dt4 <- OWIDdata2 %>%
+  filter(date == max(date)) %>%
+  select(location, total_cases, new_cases_smoothed, cases_smoothed_diff_avg, incidence, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg)
+
+dt5 <- OWIDdata2 %>%
+    group_by(iso_code) %>%
+  mutate(
+    total_vaccinations = na.locf(total_vaccinations, fromLast = F,na.rm = F),
+    people_vaccinated = na.locf(people_vaccinated, fromLast = F,na.rm = F),
+    people_fully_vaccinated = na.locf(people_fully_vaccinated, fromLast = F,na.rm = F),
+    new_vaccinations_smoothed = na.locf(new_vaccinations_smoothed, fromLast = F,na.rm = F),
+    total_vaccinations_per_hundred = na.locf(total_vaccinations_per_hundred, fromLast = F, na.rm = F),
+    people_fully_vaccinated_per_hundred = na.locf(people_fully_vaccinated_per_hundred, fromLast = F, na.rm = F)) %>%
+  ungroup() %>%
+  filter(date == max(date)) %>%
+  select(location, total_vaccinations, people_vaccinated,new_vaccinations_smoothed, people_fully_vaccinated, people_fully_vaccinated_per_hundred, total_vaccinations_per_hundred)
+```
+
+### Infections
+
+```{r}
+DT::datatable(dt4, filter = "top")
+```
+
+### Vaccinations
+
+```{r}
+DT::datatable(dt5, filter = "top")
+```
