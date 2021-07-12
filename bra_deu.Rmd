@@ -48,13 +48,14 @@ OWIDdata <- fread("https://raw.githubusercontent.com/owid/covid-19-data/master/p
   mutate(cases_smoothed_diff_avg = rollsumr(cases_smoothed_diff, 7, fill = NA)/7,
          deaths_smoothed_diff_avg = rollsumr(deaths_smoothed_diff, 7, fill = NA)/7) %>%
   mutate(incidence = rollsumr(new_cases, 7, fill = NA)/population*100000) %>%
+  mutate(weekly_hosp_admissions_per_million = na.locf(weekly_hosp_admissions_per_million, na.rm = F)) %>%
   ungroup()
 ```
 
 ```{r include=FALSE}
 dt2 <- OWIDdata %>%
   filter(date == max(date) | date == (max(date)-1)) %>%
-  select(location, date, total_cases, new_cases_smoothed, incidence, cases_smoothed_diff_avg, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg)
+  select(location, date, total_cases, new_cases_smoothed, incidence, cases_smoothed_diff_avg, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg, weekly_hosp_admissions_per_million)
 dt2 <- dt2[!duplicated(dt2$location),]
 
 dt3 <- OWIDdata %>%
@@ -100,7 +101,7 @@ OWIDdata2 <- OWIDdata %>%
 ```{r include=FALSE}
 dt4 <- OWIDdata2 %>%
   filter(date == max(date)) %>%
-  select(location, total_cases, new_cases_smoothed, cases_smoothed_diff_avg, incidence, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg)
+  select(location, total_cases, new_cases_smoothed, cases_smoothed_diff_avg, incidence, total_deaths, new_deaths_smoothed, deaths_smoothed_diff_avg, weekly_hosp_admissions_per_million)
 
 dt5 <- OWIDdata2 %>%
     group_by(iso_code) %>%
