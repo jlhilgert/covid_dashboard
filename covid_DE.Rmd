@@ -39,7 +39,7 @@ library(stringr)
 # covid_DE.lk <- readRDS(temp)
 
 
-# temp <- tempfile()
+# temp <- tempfile() 
 # 
 # download.file(url = "https://docs.google.com/uc?id=11CU-Z8PbjtAnS2Pb0kudyBudGahMJVcF&export=download", destfile = temp, quiet = T)
 
