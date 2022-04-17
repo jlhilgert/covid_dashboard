@@ -31,7 +31,7 @@ library(data.table)
 library(stringr)
 ```
 
-```{r echo=FALSE}
+```{r eval=FALSE, include=FALSE}
 # temp <- tempfile()
 # 
 # download.file(url = "https://docs.google.com/uc?id=1a87W7duFtOzGGYOMFmnJrWxfv3yXngJz&export=download", destfile = temp)
@@ -48,7 +48,7 @@ covid_DE.lk <- data.table::fread("https://docs.google.com/uc?id=11CU-Z8PbjtAnS2P
 ```
 
 
-```{r eval=FALSE, include=FALSE}
+```{r include=FALSE}
 # covid_DE <- readRDS("covid_rki.rds")
 # 
 # url1 <- "https://www.rki.de/DE/Content/InfAZ/N/Neuartiges_Coronavirus/Fallzahlen.html"
